@@ -1,200 +1,170 @@
-// Generated on 2019-08-15 using generator-angular 0.16.0
+// Generated on 2019-08-16 using generator-jhipster 3.12.0
 'use strict';
 
-var gulp = require('gulp');
-var $ = require('gulp-load-plugins')();
-var openURL = require('open');
-var lazypipe = require('lazypipe');
-var rimraf = require('rimraf');
-var wiredep = require('wiredep').stream;
-var runSequence = require('run-sequence');
+var gulp = require('gulp'),
+    rev = require('gulp-rev'),
+    templateCache = require('gulp-angular-templatecache'),
+    htmlmin = require('gulp-htmlmin'),
+    imagemin = require('gulp-imagemin'),
+    ngConstant = require('gulp-ng-constant'),
+    rename = require('gulp-rename'),
+    eslint = require('gulp-eslint'),
+    del = require('del'),
+    runSequence = require('run-sequence'),
+    browserSync = require('browser-sync'),
+    KarmaServer = require('karma').Server,
+    plumber = require('gulp-plumber'),
+    changed = require('gulp-changed'),
+    gulpIf = require('gulp-if');
 
-var yeoman = {
-  app: require('./bower.json').appPath || 'app',
-  dist: 'dist'
-};
+var handleErrors = require('./gulp/handle-errors'),
+    serve = require('./gulp/serve'),
+    util = require('./gulp/utils'),
+    copy = require('./gulp/copy'),
+    inject = require('./gulp/inject'),
+    build = require('./gulp/build');
 
-var paths = {
-  scripts: [yeoman.app + '/scripts/**/*.js'],
-  styles: [yeoman.app + '/styles/**/*.css'],
-  test: ['test/spec/**/*.js'],
-  testRequire: [
-    yeoman.app + '/bower_components/angular/angular.js',
-    yeoman.app + '/bower_components/angular-mocks/angular-mocks.js',
-    yeoman.app + '/bower_components/angular-resource/angular-resource.js',
-    yeoman.app + '/bower_components/angular-cookies/angular-cookies.js',
-    yeoman.app + '/bower_components/angular-sanitize/angular-sanitize.js',
-    yeoman.app + '/bower_components/angular-route/angular-route.js',
-    'test/mock/**/*.js',
-    'test/spec/**/*.js'
-  ],
-  karma: 'karma.conf.js',
-  views: {
-    main: yeoman.app + '/index.html',
-    files: [yeoman.app + '/views/**/*.html']
-  }
-};
+var config = require('./gulp/config');
 
-////////////////////////
-// Reusable pipelines //
-////////////////////////
-
-var lintScripts = lazypipe()
-  .pipe($.jshint, '.jshintrc')
-  .pipe($.jshint.reporter, 'jshint-stylish');
-
-var styles = lazypipe()
-  .pipe($.autoprefixer, 'last 1 version')
-  .pipe(gulp.dest, '.tmp/styles');
-
-///////////
-// Tasks //
-///////////
-
-gulp.task('styles', function () {
-  return gulp.src(paths.styles)
-    .pipe(styles());
+gulp.task('clean', function () {
+    return del([config.dist], { dot: true });
 });
 
-gulp.task('lint:scripts', function () {
-  return gulp.src(paths.scripts)
-    .pipe(lintScripts());
-});
+gulp.task('copy', ['copy:i18n', 'copy:fonts', 'copy:common']);
 
-gulp.task('clean:tmp', function (cb) {
-  rimraf('./.tmp', cb);
-});
+gulp.task('copy:i18n', copy.i18n);
 
-gulp.task('start:client', ['start:server', 'styles'], function () {
-  openURL('http://localhost:9000');
-});
+gulp.task('copy:languages', copy.languages);
 
-gulp.task('start:server', function() {
-  $.connect.server({
-    root: [yeoman.app, '.tmp'],
-    livereload: true,
-    // Change this to '0.0.0.0' to access the server from outside.
-    port: 9000
-  });
-});
+gulp.task('copy:fonts', copy.fonts);
 
-gulp.task('start:server:test', function() {
-  $.connect.server({
-    root: ['test', yeoman.app, '.tmp'],
-    livereload: true,
-    port: 9001
-  });
-});
+gulp.task('copy:common', copy.common);
 
-gulp.task('watch', function () {
-  $.watch(paths.styles)
-    .pipe($.plumber())
-    .pipe(styles())
-    .pipe($.connect.reload());
+gulp.task('copy:swagger', copy.swagger);
 
-  $.watch(paths.views.files)
-    .pipe($.plumber())
-    .pipe($.connect.reload());
-
-  $.watch(paths.scripts)
-    .pipe($.plumber())
-    .pipe(lintScripts())
-    .pipe($.connect.reload());
-
-  $.watch(paths.test)
-    .pipe($.plumber())
-    .pipe(lintScripts());
-
-  gulp.watch('bower.json', ['bower']);
-});
-
-gulp.task('serve', function (cb) {
-  runSequence('clean:tmp',
-    ['lint:scripts'],
-    ['start:client'],
-    'watch', cb);
-});
-
-gulp.task('serve:prod', function() {
-  $.connect.server({
-    root: [yeoman.dist],
-    livereload: true,
-    port: 9000
-  });
-});
-
-gulp.task('test', ['start:server:test'], function () {
-  var testToFiles = paths.testRequire.concat(paths.scripts, paths.test);
-  return gulp.src(testToFiles)
-    .pipe($.karma({
-      configFile: paths.karma,
-      action: 'watch'
-    }));
-});
-
-// inject bower components
-gulp.task('bower', function () {
-  return gulp.src(paths.views.main)
-    .pipe(wiredep({
-      directory: yeoman.app + '/bower_components',
-      ignorePath: '..'
-    }))
-  .pipe(gulp.dest(yeoman.app + '/views'));
-});
-
-///////////
-// Build //
-///////////
-
-gulp.task('clean:dist', function (cb) {
-  rimraf('./dist', cb);
-});
-
-gulp.task('client:build', ['html', 'styles'], function () {
-  var jsFilter = $.filter('**/*.js');
-  var cssFilter = $.filter('**/*.css');
-
-  return gulp.src(paths.views.main)
-    .pipe($.useref({searchPath: [yeoman.app, '.tmp']}))
-    .pipe(jsFilter)
-    .pipe($.ngAnnotate())
-    .pipe($.uglify())
-    .pipe(jsFilter.restore())
-    .pipe(cssFilter)
-    .pipe($.minifyCss({cache: true}))
-    .pipe(cssFilter.restore())
-    .pipe($.rev())
-    .pipe($.revReplace())
-    .pipe(gulp.dest(yeoman.dist));
-});
-
-gulp.task('html', function () {
-  return gulp.src(yeoman.app + '/views/**/*')
-    .pipe(gulp.dest(yeoman.dist + '/views'));
-});
+gulp.task('copy:images', copy.images);
 
 gulp.task('images', function () {
-  return gulp.src(yeoman.app + '/images/**/*')
-    .pipe($.cache($.imagemin({
-        optimizationLevel: 5,
-        progressive: true,
-        interlaced: true
-    })))
-    .pipe(gulp.dest(yeoman.dist + '/images'));
+    return gulp.src(config.app + 'content/images/**')
+        .pipe(plumber({errorHandler: handleErrors}))
+        .pipe(changed(config.dist + 'content/images'))
+        .pipe(imagemin({optimizationLevel: 5, progressive: true, interlaced: true}))
+        .pipe(rev())
+        .pipe(gulp.dest(config.dist + 'content/images'))
+        .pipe(rev.manifest(config.revManifest, {
+            base: config.dist,
+            merge: true
+        }))
+        .pipe(gulp.dest(config.dist))
+        .pipe(browserSync.reload({stream: true}));
 });
 
-gulp.task('copy:extras', function () {
-  return gulp.src(yeoman.app + '/*/.*', { dot: true })
-    .pipe(gulp.dest(yeoman.dist));
+
+gulp.task('styles', [], function () {
+    return gulp.src(config.app + 'content/css')
+        .pipe(browserSync.reload({stream: true}));
 });
 
-gulp.task('copy:fonts', function () {
-  return gulp.src(yeoman.app + '/fonts/**/*')
-    .pipe(gulp.dest(yeoman.dist + '/fonts'));
+gulp.task('inject', function() {
+    runSequence('inject:dep', 'inject:app');
 });
 
-gulp.task('build', ['clean:dist'], function () {
-  runSequence(['images', 'copy:extras', 'copy:fonts', 'client:build']);
+gulp.task('inject:dep', ['inject:test', 'inject:vendor']);
+
+gulp.task('inject:app', inject.app);
+
+gulp.task('inject:vendor', inject.vendor);
+
+gulp.task('inject:test', inject.test);
+
+gulp.task('inject:troubleshoot', inject.troubleshoot);
+
+gulp.task('assets:prod', ['images', 'styles', 'html', 'copy:swagger', 'copy:images'], build);
+
+gulp.task('html', function () {
+    return gulp.src(config.app + 'app/**/*.html')
+        .pipe(htmlmin({collapseWhitespace: true}))
+        .pipe(templateCache({
+            module: 'baselApp',
+            root: 'app/',
+            moduleSystem: 'IIFE'
+        }))
+        .pipe(gulp.dest(config.tmp));
 });
 
-gulp.task('default', ['build']);
+gulp.task('ngconstant:dev', function () {
+    return ngConstant({
+        name: 'baselApp',
+        constants: {
+            VERSION: util.parseVersion(),
+            DEBUG_INFO_ENABLED: true
+        },
+        template: config.constantTemplate,
+        stream: true
+    })
+    .pipe(rename('app.constants.js'))
+    .pipe(gulp.dest(config.app + 'app/'));
+});
+
+gulp.task('ngconstant:prod', function () {
+    return ngConstant({
+        name: 'baselApp',
+        constants: {
+            VERSION: util.parseVersion(),
+            DEBUG_INFO_ENABLED: false
+        },
+        template: config.constantTemplate,
+        stream: true
+    })
+    .pipe(rename('app.constants.js'))
+    .pipe(gulp.dest(config.app + 'app/'));
+});
+
+// check app for eslint errors
+gulp.task('eslint', function () {
+    return gulp.src(['gulpfile.js', config.app + 'app/**/*.js'])
+        .pipe(plumber({errorHandler: handleErrors}))
+        .pipe(eslint())
+        .pipe(eslint.format())
+        .pipe(eslint.failOnError());
+});
+
+// check app for eslint errors anf fix some of them
+gulp.task('eslint:fix', function () {
+    return gulp.src(config.app + 'app/**/*.js')
+        .pipe(plumber({errorHandler: handleErrors}))
+        .pipe(eslint({
+            fix: true
+        }))
+        .pipe(eslint.format())
+        .pipe(gulpIf(util.isLintFixed, gulp.dest(config.app + 'app')));
+});
+
+gulp.task('test', ['inject:test', 'ngconstant:dev'], function (done) {
+    new KarmaServer({
+        configFile: __dirname + '/' + config.test + 'karma.conf.js',
+        singleRun: true
+    }, done).start();
+});
+
+
+gulp.task('watch', function () {
+    gulp.watch('bower.json', ['install']);
+    gulp.watch(['gulpfile.js', 'build.gradle'], ['ngconstant:dev']);
+    gulp.watch(config.app + 'content/css/**/*.css', ['styles']);
+    gulp.watch(config.app + 'content/images/**', ['images']);
+    gulp.watch(config.app + 'app/**/*.js', ['inject:app']);
+    gulp.watch([config.app + '*.html', config.app + 'app/**', config.app + 'i18n/**']).on('change', browserSync.reload);
+});
+
+gulp.task('install', function () {
+    runSequence(['inject:dep', 'ngconstant:dev'], 'copy:languages', 'inject:app', 'inject:troubleshoot');
+});
+
+gulp.task('serve', ['install'], serve);
+
+gulp.task('build', ['clean'], function (cb) {
+    runSequence(['copy', 'inject:vendor', 'ngconstant:prod', 'copy:languages'], 'inject:app', 'inject:troubleshoot', 'assets:prod', cb);
+});
+
+gulp.task('default', ['serve']);
